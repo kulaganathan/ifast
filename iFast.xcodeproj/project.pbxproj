@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A64FA81C2E4591F500E28761 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = A64FA81B2E4591F500E28761 /* Alamofire */; };
+
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A64FA7FE2E4399E600E28761 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+							A64FA81C2E4591F500E28761 /* Alamofire in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +118,7 @@
 			);
 			name = iFast;
 			packageProductDependencies = (
+						A64FA81B2E4591F500E28761 /* Alamofire */,
 			);
 			productName = iFast;
 			productReference = A64FA7F02E4399E300E28761 /* iFast.app */;
@@ -195,6 +202,9 @@
 			);
 			mainGroup = A64FA7E72E4399E300E28761;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A64FA81A2E4591F500E28761 /* XCRemoteSwiftPackageReference "Alamofire" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A64FA7F12E4399E300E28761 /* Products */;
 			projectDirPath = "";
@@ -550,6 +560,26 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A64FA81A2E4591F500E28761 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Alamofire/Alamofire.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.10.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A64FA81B2E4591F500E28761 /* Alamofire */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A64FA81A2E4591F500E28761 /* XCRemoteSwiftPackageReference "Alamofire" */;
+			productName = Alamofire;
+		};
+
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A64FA7E82E4399E300E28761 /* Project object */;
 }
