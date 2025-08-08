@@ -11,6 +11,8 @@ import Combine
 
 class HealthKitManager: ObservableObject {
     private let healthStore = HKHealthStore()
+    private var stepQuery: HKObserverQuery?
+    private var backgroundDeliveryQuery: HKQuery?
     
     @Published var todaySteps: Int = 0
     @Published var isAuthorized = false
@@ -18,6 +20,16 @@ class HealthKitManager: ObservableObject {
     
     init() {
         requestAuthorization()
+    }
+    
+    deinit {
+        // Clean up queries
+        if let stepQuery = stepQuery {
+            healthStore.stop(stepQuery)
+        }
+        if let backgroundQuery = backgroundDeliveryQuery {
+            healthStore.stop(backgroundQuery)
+        }
     }
     
     func requestAuthorization() {
@@ -35,11 +47,43 @@ class HealthKitManager: ObservableObject {
             DispatchQueue.main.async {
                 self?.isAuthorized = success
                 if success {
+                    self?.setupStepObserver()
                     self?.fetchTodaySteps()
                 } else {
                     print("HealthKit authorization failed: \(error?.localizedDescription ?? "Unknown error")")
                 }
             }
+        }
+    }
+    
+    private func setupStepObserver() {
+        guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return }
+        
+        // Create observer query for automatic updates
+        stepQuery = HKObserverQuery(sampleType: stepType, predicate: nil) { [weak self] _, _, error in
+            if let error = error {
+                print("Step observer error: \(error.localizedDescription)")
+                return
+            }
+            
+            // Fetch updated steps when data changes
+            DispatchQueue.main.async {
+                self?.fetchTodaySteps()
+            }
+        }
+        
+        // Enable background delivery for step updates
+        healthStore.enableBackgroundDelivery(for: stepType, frequency: .immediate) { success, error in
+            if let error = error {
+                print("Background delivery setup failed: \(error.localizedDescription)")
+            } else {
+                print("Background delivery enabled for steps")
+            }
+        }
+        
+        // Start the observer query
+        if let stepQuery = stepQuery {
+            healthStore.execute(stepQuery)
         }
     }
     
@@ -75,6 +119,7 @@ class HealthKitManager: ObservableObject {
                 if let result = result, let sum = result.sumQuantity() {
                     let steps = Int(sum.doubleValue(for: HKUnit.count()))
                     self?.todaySteps = steps
+                    print("Updated steps: \(steps)")
                 } else {
                     self?.todaySteps = 0
                 }
@@ -86,6 +131,22 @@ class HealthKitManager: ObservableObject {
     
     func refreshSteps() {
         fetchTodaySteps()
+    }
+    
+    // MARK: - App Lifecycle Methods
+    
+    func applicationDidBecomeActive() {
+        // Refresh steps when app becomes active
+        if isAuthorized {
+            fetchTodaySteps()
+        }
+    }
+    
+    func applicationWillEnterForeground() {
+        // Refresh steps when app enters foreground
+        if isAuthorized {
+            fetchTodaySteps()
+        }
     }
     
     // Calculate calories burned from steps (rough estimate)

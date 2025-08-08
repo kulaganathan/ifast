@@ -9,11 +9,13 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var fastDatabase = FastDatabase()
+    @StateObject private var healthKitManager = HealthKitManager()
     
     var body: some View {
         TabView {
             TodayView()
                 .environmentObject(fastDatabase)
+                .environmentObject(healthKitManager)
                 .tabItem {
                     Image(systemName: "calendar")
                     Text("Today")
@@ -27,6 +29,7 @@ struct ContentView: View {
                 }
             
             StepsView()
+                .environmentObject(healthKitManager)
                 .tabItem {
                     Image(systemName: "figure.walk")
                     Text("Steps")
@@ -39,12 +42,18 @@ struct ContentView: View {
                 }
         }
         .accentColor(.blue)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            healthKitManager.applicationDidBecomeActive()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            healthKitManager.applicationWillEnterForeground()
+        }
     }
 }
 
 struct TodayView: View {
     @EnvironmentObject var fastDatabase: FastDatabase
-    @StateObject private var healthKitManager = HealthKitManager()
+    @EnvironmentObject var healthKitManager: HealthKitManager
     @State private var currentElapsedTime: TimeInterval = 0
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -109,10 +118,10 @@ struct TodayView: View {
                     
                     // Quick Stats Cards
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
-                        StatCard(title: "Current Fast", value: currentFast != nil ? formatDuration(currentElapsedTime) : "Not Fasting", subtitle: "hours", color: .blue)
+                        StatCard(title: "Current Fast", value: currentFast != nil ? formatDuration(currentElapsedTime) : "Not Fasting", subtitle: "hours", color: Color(red: 0.31, green: 0.275, blue: 0.918))
                         StatCard(title: "Calories", value: "\(healthKitManager.calculateCalories(from: healthKitManager.todaySteps))", subtitle: "burned", color: .green)
                         StatCard(title: "Steps", value: "\(healthKitManager.todaySteps)", subtitle: "today", color: .orange)
-                        StatCard(title: "Water", value: "6/8", subtitle: "glasses", color: .cyan)
+                        StatCard(title: "Water", value: "6/8", subtitle: "glasses", color: Color(red: 0.06, green: 0.72, blue: 0.83))
                     }
                     .padding(.horizontal)
                     
@@ -122,9 +131,9 @@ struct TodayView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        ProgressCard(title: "Fasting Goal", progress: fastingProgress, color: .blue, subtitle: fastingProgressText)
+                        ProgressCard(title: "Fasting Goal", progress: fastingProgress, color: Color(red: 0.31, green: 0.275, blue: 0.918), subtitle: fastingProgressText)
                         ProgressCard(title: "Steps Goal", progress: healthKitManager.getStepProgress(), color: .orange, subtitle: "\(healthKitManager.todaySteps) / \(healthKitManager.getStepGoal()) steps")
-                        ProgressCard(title: "Water Goal", progress: 0.75, color: .cyan, subtitle: "6 / 8 glasses")
+                        ProgressCard(title: "Water Goal", progress: 0.75, color: Color(red: 0.06, green: 0.72, blue: 0.83), subtitle: "6 / 8 glasses")
                     }
                     .padding(.horizontal)
                 }
@@ -156,6 +165,10 @@ struct FastView: View {
     @State private var showingNotesSheet = false
     @State private var currentElapsedTime: TimeInterval = 0
     @State private var showingStopConfirmation = false
+    @State private var showingEditSheet = false
+    @State private var selectedDate: Date = Date()
+    @State private var editingHours: String = ""
+    @State private var editingMinutes: String = ""
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var currentFast: FastRecord? {
@@ -166,35 +179,111 @@ struct FastView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 30) {
-                    // Timer Display
-                    VStack(spacing: 20) {
-                        if let fast = currentFast {
-                            Text(timeString(from: currentElapsedTime))
-                                .font(.system(size: 60, weight: .thin, design: .monospaced))
-                                .foregroundColor(.blue)
-                            
-                            Text("Fasting - \(fast.type.displayName)")
-                                .font(.title2)
-                                .fontWeight(.medium)
-                                .foregroundColor(.blue)
-                        } else {
-                            Text("00:00:00")
-                                .font(.system(size: 60, weight: .thin, design: .monospaced))
-                                .foregroundColor(.secondary)
-                            
-                            Text("Not Fasting")
-                                .font(.title2)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
+                    // Fasting Dial
+                    ZStack {
+                        // Background circle
+                        Circle()
+                            .stroke(Color(red: 0.31, green: 0.275, blue: 0.918).opacity(0.2), lineWidth: 25)
+                            .frame(width: 300, height: 300)
+                        
+                        // Progress circle
+                        Circle()
+                            .trim(from: 0, to: getFastingProgress())
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color(red: 0.31, green: 0.275, blue: 0.918),
+                                        Color(red: 0.4, green: 0.35, blue: 0.95)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                style: StrokeStyle(lineWidth: 25, lineCap: .round)
+                            )
+                            .frame(width: 300, height: 300)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.easeInOut(duration: 1), value: currentElapsedTime)
+                        
+                        // Center content
+                        VStack(spacing: 8) {
+                            if let fast = currentFast {
+                                Text(timeString(from: currentElapsedTime))
+                                    .font(.system(size: 48, weight: .thin, design: .monospaced))
+                                    .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
+                                
+                                Text("Fasting")
+                                    .font(.title3)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
+                                
+                                Text(fast.type.displayName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 4)
+                                    .background(Color(red: 0.31, green: 0.275, blue: 0.918).opacity(0.1))
+                                    .cornerRadius(8)
+                            } else {
+                                Text("00:00:00")
+                                    .font(.system(size: 48, weight: .thin, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                
+                                Text("Not Fasting")
+                                    .font(.title3)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+                                
+                                Text("Ready to start")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
-                    .padding(.top, 50)
+                    .padding(.top, 30)
                     .onReceive(timer) { _ in
                         if let fast = currentFast {
                             currentElapsedTime = Date().timeIntervalSince(fast.startTime)
                         } else {
                             currentElapsedTime = 0
                         }
+                    }
+                    
+                    // Progress Info
+                    if let fast = currentFast {
+                        VStack(spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text("Target")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("\(fast.type.targetHours) hours")
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                Spacer()
+                                
+                                VStack(alignment: .trailing) {
+                                    Text("Completed")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("\(Int(currentElapsedTime / 3600))h \(Int((currentElapsedTime.truncatingRemainder(dividingBy: 3600)) / 60))m")
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
+                                }
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            
+                            // Progress percentage
+                            Text("\(Int(getFastingProgress() * 100))% Complete")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
+                        }
+                        .padding(.horizontal)
                     }
                     
                     // Fast Type Selector
@@ -207,9 +296,9 @@ struct FastView: View {
                                     .font(.headline)
                                 Image(systemName: "chevron.down")
                             }
-                            .foregroundColor(.blue)
+                            .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
                             .padding()
-                            .background(Color.blue.opacity(0.1))
+                            .background(Color(red: 0.31, green: 0.275, blue: 0.918).opacity(0.1))
                             .cornerRadius(10)
                         }
                         .actionSheet(isPresented: $showingFastTypePicker) {
@@ -232,14 +321,17 @@ struct FastView: View {
                             startFasting()
                         }
                     }) {
-                        Text(currentFast != nil ? "Stop Fast" : "Start Fast")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 60)
-                            .background(currentFast != nil ? Color.red : Color.blue)
-                            .cornerRadius(15)
+                        HStack {
+                            Image(systemName: currentFast != nil ? "stop.fill" : "play.fill")
+                            Text(currentFast != nil ? "Stop Fast" : "Start Fast")
+                        }
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 60)
+                        .background(currentFast != nil ? Color.red : Color(red: 0.31, green: 0.275, blue: 0.918))
+                        .cornerRadius(15)
                     }
                     .padding(.horizontal, 40)
                     .alert("Stop Fast", isPresented: $showingStopConfirmation) {
@@ -261,9 +353,9 @@ struct FastView: View {
                                 Text("Add Notes")
                             }
                             .font(.headline)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
                             .padding()
-                            .background(Color.blue.opacity(0.1))
+                            .background(Color(red: 0.31, green: 0.275, blue: 0.918).opacity(0.1))
                             .cornerRadius(10)
                         }
                     }
@@ -279,10 +371,34 @@ struct FastView: View {
                                 .foregroundColor(.secondary)
                                 .padding()
                         } else {
-                            LazyVStack(spacing: 12) {
-                                ForEach(fastDatabase.fastRecords) { record in
-                                    FastHistoryRow(record: record)
+                            // Horizontal scrollable tall bars
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(Array(getRecentDays().enumerated()), id: \.offset) { index, date in
+                                        TallDayFastBar(
+                                            date: date,
+                                            fastRecords: fastDatabase.getFastRecordsForDate(date),
+                                            isToday: Calendar.current.isDateInToday(date),
+                                            isFuture: date > Date(),
+                                            onTap: {
+                                                if date < Date() && !Calendar.current.isDateInToday(date) {
+                                                    selectedDate = date
+                                                    let records = fastDatabase.getFastRecordsForDate(date)
+                                                    if let firstRecord = records.first {
+                                                        let totalHours = firstRecord.duration / 3600
+                                                        editingHours = "\(Int(totalHours))"
+                                                        editingMinutes = "\(Int((firstRecord.duration.truncatingRemainder(dividingBy: 3600)) / 60))"
+                                                    } else {
+                                                        editingHours = "0"
+                                                        editingMinutes = "0"
+                                                    }
+                                                    showingEditSheet = true
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
+                                .padding(.horizontal, 20)
                             }
                         }
                     }
@@ -299,7 +415,23 @@ struct FastView: View {
                     updateFastNotes()
                 })
             }
+            .sheet(isPresented: $showingEditSheet) {
+                EditFastSheet(
+                    date: selectedDate,
+                    hours: $editingHours,
+                    minutes: $editingMinutes,
+                    onSave: {
+                        updateFastDuration()
+                    }
+                )
+            }
         }
+    }
+    
+    private func getFastingProgress() -> Double {
+        guard let fast = currentFast else { return 0.0 }
+        let targetSeconds = Double(fast.type.targetHours) * 3600
+        return min(currentElapsedTime / targetSeconds, 1.0)
     }
     
     private func startFasting() {
@@ -342,11 +474,387 @@ struct FastView: View {
         notes = ""
     }
     
+    private func updateFastDuration() {
+        let hours = Double(editingHours) ?? 0
+        let minutes = Double(editingMinutes) ?? 0
+        let newDuration = (hours * 3600) + (minutes * 60)
+        
+        let records = fastDatabase.getFastRecordsForDate(selectedDate)
+        if let firstRecord = records.first {
+            // Create updated record with new duration
+            let updatedFast = FastRecord(
+                id: firstRecord.id,
+                startTime: firstRecord.startTime,
+                endTime: firstRecord.endTime,
+                duration: newDuration,
+                type: firstRecord.type,
+                notes: firstRecord.notes,
+                createdAt: firstRecord.createdAt
+            )
+            
+            fastDatabase.updateFastRecord(updatedFast)
+        }
+        
+        editingHours = ""
+        editingMinutes = ""
+    }
+    
     private func timeString(from timeInterval: TimeInterval) -> String {
         let hours = Int(timeInterval) / 3600
         let minutes = Int(timeInterval) % 3600 / 60
         let seconds = Int(timeInterval) % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+    
+    private func getCalendarDays() -> [Date] {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Get the start of the current week (Sunday)
+        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+        let startOfWeekSunday = calendar.date(byAdding: .day, value: -calendar.component(.weekday, from: startOfWeek) + 1, to: startOfWeek) ?? startOfWeek
+        
+        var days: [Date] = []
+        
+        // Generate 35 days (5 weeks) starting from the Sunday of the current week
+        for i in 0..<35 {
+            if let day = calendar.date(byAdding: .day, value: i, to: startOfWeekSunday) {
+                days.append(day)
+            }
+        }
+        
+        return days
+    }
+    
+    private func getRecentDays() -> [Date] {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        var days: [Date] = []
+        
+        // Generate 14 days (2 weeks) starting from 7 days ago
+        for i in -7..<7 {
+            if let day = calendar.date(byAdding: .day, value: i, to: today) {
+                days.append(day)
+            }
+        }
+        
+        return days
+    }
+}
+
+// MARK: - DayFastBar View
+struct DayFastBar: View {
+    let date: Date
+    let fastRecords: [FastRecord]
+    let isToday: Bool
+    let isFuture: Bool
+    
+    private var totalFastingHours: Double {
+        fastRecords.reduce(0) { total, record in
+            total + (record.duration / 3600)
+        }
+    }
+    
+    private var targetHours: Double {
+        // Default to 16 hours if no records, otherwise use the most common target
+        if let mostCommonType = fastRecords.map({ $0.type }).mostCommon() {
+            return Double(mostCommonType.targetHours)
+        }
+        return 16.0
+    }
+    
+    private var progressRatio: Double {
+        guard !isFuture else { return 0.0 }
+        return min(totalFastingHours / targetHours, 1.0)
+    }
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            // Day number
+            Text("\(Calendar.current.component(.day, from: date))")
+                .font(.caption2)
+                .fontWeight(isToday ? .bold : .medium)
+                .foregroundColor(isFuture ? .secondary : (isToday ? Color(red: 0.31, green: 0.275, blue: 0.918) : .primary))
+            
+            // Progress bar
+            ZStack(alignment: .bottom) {
+                // Background bar
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(red: 0.31, green: 0.275, blue: 0.918).opacity(0.1))
+                    .frame(height: 40)
+                
+                // Progress bar
+                if !isFuture && progressRatio > 0 {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color(red: 0.31, green: 0.275, blue: 0.918),
+                                    Color(red: 0.4, green: 0.35, blue: 0.95)
+                                ]),
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .frame(height: 40 * progressRatio)
+                        .animation(.easeInOut(duration: 0.5), value: progressRatio)
+                }
+                
+                // Fast indicator dots
+                if !isFuture && !fastRecords.isEmpty {
+                    HStack(spacing: 2) {
+                        ForEach(0..<min(fastRecords.count, 3), id: \.self) { index in
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 4, height: 4)
+                        }
+                    }
+                    .padding(.bottom, 4)
+                }
+            }
+            .frame(height: 40)
+            
+            // Hours text
+            if !isFuture && totalFastingHours > 0 {
+                Text("\(Int(totalFastingHours))h")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
+            } else if isFuture {
+                Text("-")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("0h")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(height: 70)
+        .opacity(isFuture ? 0.5 : 1.0)
+    }
+}
+
+// MARK: - TallDayFastBar View
+struct TallDayFastBar: View {
+    let date: Date
+    let fastRecords: [FastRecord]
+    let isToday: Bool
+    let isFuture: Bool
+    let onTap: () -> Void
+    
+    private var totalFastingHours: Double {
+        fastRecords.reduce(0) { total, record in
+            total + (record.duration / 3600)
+        }
+    }
+    
+    private var targetHours: Double {
+        // Default to 16 hours if no records, otherwise use the most common target
+        if let mostCommonType = fastRecords.map({ $0.type }).mostCommon() {
+            return Double(mostCommonType.targetHours)
+        }
+        return 16.0
+    }
+    
+    private var progressRatio: Double {
+        guard !isFuture else { return 0.0 }
+        return min(totalFastingHours / targetHours, 1.0)
+    }
+    
+    private var dayName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
+    }
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            // Day name and number
+            VStack(spacing: 2) {
+                Text(dayName)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(isFuture ? .secondary : .primary)
+                
+                Text("\(Calendar.current.component(.day, from: date))")
+                    .font(.title2)
+                    .fontWeight(isToday ? .bold : .semibold)
+                    .foregroundColor(isFuture ? .secondary : (isToday ? Color(red: 0.31, green: 0.275, blue: 0.918) : .primary))
+            }
+            
+            // Tall progress bar
+            ZStack(alignment: .bottom) {
+                // Background bar
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(red: 0.31, green: 0.275, blue: 0.918).opacity(0.1))
+                    .frame(width: 50, height: 120)
+                
+                // Progress bar
+                if !isFuture && progressRatio > 0 {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color(red: 0.31, green: 0.275, blue: 0.918),
+                                    Color(red: 0.4, green: 0.35, blue: 0.95)
+                                ]),
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .frame(width: 50, height: 120 * progressRatio)
+                        .animation(.easeInOut(duration: 0.5), value: progressRatio)
+                }
+                
+                // Fast indicator dots
+                if !isFuture && !fastRecords.isEmpty {
+                    VStack(spacing: 2) {
+                        ForEach(0..<min(fastRecords.count, 4), id: \.self) { index in
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                    .padding(.bottom, 8)
+                }
+            }
+            .frame(width: 50, height: 120)
+            
+            // Hours text
+            if !isFuture && totalFastingHours > 0 {
+                Text("\(Int(totalFastingHours))h")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
+            } else if isFuture {
+                Text("-")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("0h")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Target indicator
+            if !isFuture {
+                Text("\(Int(targetHours))h goal")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(width: 60, height: 200)
+        .opacity(isFuture ? 0.5 : 1.0)
+        .onTapGesture {
+            onTap()
+        }
+    }
+}
+
+// MARK: - Array Extension
+extension Array where Element: Hashable {
+    func mostCommon() -> Element? {
+        let counts = self.reduce(into: [:]) { counts, element in
+            counts[element, default: 0] += 1
+        }
+        return counts.max(by: { $0.value < $1.value })?.key
+    }
+}
+
+// MARK: - EditFastSheet View
+struct EditFastSheet: View {
+    let date: Date
+    @Binding var hours: String
+    @Binding var minutes: String
+    let onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    private var dateString: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 8) {
+                    Text("Edit Fast Duration")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Text(dateString)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top)
+                
+                // Duration Input
+                VStack(spacing: 16) {
+                    Text("Fast Duration")
+                        .font(.headline)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 20) {
+                        // Hours
+                        VStack(spacing: 8) {
+                            Text("Hours")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            TextField("0", text: $hours)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 80)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        // Minutes
+                        VStack(spacing: 8) {
+                            Text("Minutes")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            TextField("0", text: $minutes)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 80)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                }
+                
+                // Info
+                VStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.blue)
+                    
+                    Text("This will update the fasting duration for this day. The start time will remain unchanged.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    dismiss()
+                },
+                trailing: Button("Save") {
+                    onSave()
+                    dismiss()
+                }
+                .fontWeight(.semibold)
+                .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
+            )
+        }
     }
 }
 
@@ -402,7 +910,7 @@ struct FastHistoryRow: View {
                 Text(formatDuration(record.duration))
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color(red: 0.31, green: 0.275, blue: 0.918))
                 
                 if record.notes != nil {
                     Image(systemName: "note.text")
@@ -430,7 +938,7 @@ struct FastHistoryRow: View {
 }
 
 struct StepsView: View {
-    @StateObject private var healthKitManager = HealthKitManager()
+    @EnvironmentObject var healthKitManager: HealthKitManager
     @State private var showingPermissionAlert = false
     
     var body: some View {
@@ -522,7 +1030,7 @@ struct StepsView: View {
                     .padding()
                 }
                 
-                // Refresh Button
+                // Refresh Button (now optional since auto-sync is enabled)
                 Button(action: {
                     healthKitManager.refreshSteps()
                 }) {
@@ -571,7 +1079,7 @@ struct WaterView: View {
                         
                         Circle()
                             .trim(from: 0, to: min(Double(waterGlasses) / Double(goal), 1.0))
-                            .stroke(Color.cyan, style: StrokeStyle(lineWidth: 20, lineCap: .round))
+                            .stroke(Color(red: 0.06, green: 0.72, blue: 0.83), style: StrokeStyle(lineWidth: 20, lineCap: .round))
                             .frame(width: 250, height: 250)
                             .rotationEffect(.degrees(-90))
                             .animation(.easeInOut(duration: 1), value: waterGlasses)
@@ -606,7 +1114,7 @@ struct WaterView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 60)
-                    .background(waterGlasses < goal ? Color.cyan : Color.gray)
+                    .background(waterGlasses < goal ? Color(red: 0.06, green: 0.72, blue: 0.83) : Color.gray)
                     .cornerRadius(15)
                 }
                 .disabled(waterGlasses >= goal)
