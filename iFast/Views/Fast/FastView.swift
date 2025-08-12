@@ -191,7 +191,7 @@ struct FastView: View {
                         } else {
                             // Horizontal scrollable tall bars
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: 10) {
                                     ForEach(Array(getRecentDays().enumerated()), id: \.offset) { index, date in
                                         TallDayFastBar(
                                             date: date,
@@ -216,7 +216,7 @@ struct FastView: View {
                                         )
                                     }
                                 }
-                                .padding(.horizontal, 20)
+                                .padding()
                             }
                         }
                     }
@@ -351,7 +351,7 @@ struct FastView: View {
         var days: [Date] = []
         
         // Generate 14 days (2 weeks) starting from 7 days ago
-        for i in -7..<7 {
+        for i in -3..<7 {
             if let day = calendar.date(byAdding: .day, value: i, to: today) {
                 days.append(day)
             }

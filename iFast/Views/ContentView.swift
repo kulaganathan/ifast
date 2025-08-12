@@ -86,9 +86,9 @@ struct TallDayFastBar: View {
     }
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack() {
             // Day name and number
-            VStack(spacing: 2) {
+            VStack() {
                 Text(dayName)
                     .font(.caption)
                     .fontWeight(.medium)
@@ -105,7 +105,7 @@ struct TallDayFastBar: View {
                 // Background bar
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(red: 0.31, green: 0.275, blue: 0.918).opacity(0.1))
-                    .frame(width: 50, height: 120)
+                    .frame(width: 40, height: 150)
                 
                 // Progress bar
                 if !isFuture && progressRatio > 0 {
@@ -120,7 +120,7 @@ struct TallDayFastBar: View {
                                 endPoint: .top
                             )
                         )
-                        .frame(width: 50, height: 120 * progressRatio)
+                        .frame(width: 40, height: 150 * progressRatio)
                         .animation(.easeInOut(duration: 0.5), value: progressRatio)
                 }
                 
