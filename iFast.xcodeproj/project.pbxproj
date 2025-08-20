@@ -7,7 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A64FA81C2E4591F500E28761 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = A64FA81B2E4591F500E28761 /* Alamofire */; };
+		A681255C2E55947C00238354 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = A681255B2E55947C00238354 /* Alamofire */; };
+		A681255F2E5594DA00238354 /* AuthAPI in Frameworks */ = {isa = PBXBuildFile; productRef = A681255E2E5594DA00238354 /* AuthAPI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +57,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A64FA81C2E4591F500E28761 /* Alamofire in Frameworks */,
+				A681255C2E55947C00238354 /* Alamofire in Frameworks */,
+				A681255F2E5594DA00238354 /* AuthAPI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,7 +119,8 @@
 			);
 			name = iFast;
 			packageProductDependencies = (
-				A64FA81B2E4591F500E28761 /* Alamofire */,
+				A681255B2E55947C00238354 /* Alamofire */,
+				A681255E2E5594DA00238354 /* AuthAPI */,
 			);
 			productName = iFast;
 			productReference = A64FA7F02E4399E300E28761 /* iFast.app */;
@@ -202,7 +205,8 @@
 			mainGroup = A64FA7E72E4399E300E28761;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				A64FA81A2E4591F500E28761 /* XCRemoteSwiftPackageReference "Alamofire" */,
+				A681255A2E55947C00238354 /* XCRemoteSwiftPackageReference "Alamofire" */,
+				A681255D2E5594DA00238354 /* XCLocalSwiftPackageReference "AuthAPI" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A64FA7F12E4399E300E28761 /* Products */;
@@ -568,8 +572,15 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		A681255D2E5594DA00238354 /* XCLocalSwiftPackageReference "AuthAPI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AuthAPI;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
-		A64FA81A2E4591F500E28761 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
+		A681255A2E55947C00238354 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Alamofire/Alamofire.git";
 			requirement = {
@@ -580,10 +591,14 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A64FA81B2E4591F500E28761 /* Alamofire */ = {
+		A681255B2E55947C00238354 /* Alamofire */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A64FA81A2E4591F500E28761 /* XCRemoteSwiftPackageReference "Alamofire" */;
+			package = A681255A2E55947C00238354 /* XCRemoteSwiftPackageReference "Alamofire" */;
 			productName = Alamofire;
+		};
+		A681255E2E5594DA00238354 /* AuthAPI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AuthAPI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

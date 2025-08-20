@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var fastDatabase = FastDatabase()
     @StateObject private var healthKitManager = HealthKitManager()
+    @EnvironmentObject var authManager: AuthManager
     
     var body: some View {
         TabView {
@@ -39,6 +40,13 @@ struct ContentView: View {
                 .tabItem {
                     Image(systemName: "drop.fill")
                     Text("Water")
+                }
+            
+            ProfileView()
+                .environmentObject(authManager)
+                .tabItem {
+                    Image(systemName: "person.circle")
+                    Text("Profile")
                 }
         }
         .accentColor(.blue)
